@@ -1,4 +1,4 @@
-import { z } from "zod"
+import { optional, z } from "zod"
 import { prisma } from "../../lib/prisma"
 import { FastifyInstance } from "fastify"
 import { redis } from "../../lib/redis"
@@ -32,8 +32,26 @@ export async function getPoll(app: FastifyInstance) {
 
         const result = await redis.zrange(pollId, 0, -1, 'WITHSCORES')
 
-        console.log(result)
+        const votes = result.reduce((obj, line, index) => {
+            if(index % 2 === 0 ) {
+                obj[line] = Number(result[index +1])
+            }
+            return obj
+        } , {} as Record<string, number>)
+
     
-        return res.send({poll})
+        return res.send({
+            poll: {
+                id: poll.id,
+                title: poll.title,
+                options: poll.options.map(option => {
+                    return {
+                        id: option.id,
+                        title: option.title,
+                        score: (option.id in votes) ? votes[option.id] : 0
+                    }
+                })
+            }
+        })
     })
 }
